@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+
 
 class ProdutoBase(BaseModel):
     nome_produto: str
@@ -8,10 +9,11 @@ class ProdutoBase(BaseModel):
     comprimento_centimetros: Optional[float] = None
     altura_centimetros: Optional[float] = None
     largura_centimetros: Optional[float] = None
-    imagem_url: Optional[str] = None
+
 
 class ProdutoCreate(ProdutoBase):
     id_produto: str
+
 
 class ProdutoUpdate(BaseModel):
     nome_produto: Optional[str] = None
@@ -21,19 +23,21 @@ class ProdutoUpdate(BaseModel):
     altura_centimetros: Optional[float] = None
     largura_centimetros: Optional[float] = None
 
+
 class ProdutoResponse(ProdutoBase):
     id_produto: str
+    imagem_url: Optional[str] = None
+
     class Config:
         from_attributes = True
-
-
 
 class AvaliacaoDetalhe(BaseModel):
     avaliacao: int
     titulo_comentario: Optional[str] = None
     comentario: Optional[str] = None
 
-# Schema para o detalhamento completo do produto
+
 class ProdutoDetalhesResponse(ProdutoResponse):
-    quantidade_vendas: int
-    avaliacoes_consumidores: List[AvaliacaoDetalhe]
+    vendas_totais: int
+    avaliacoes: List[Dict[str, Any]] = []
+    media_avaliacoes: Optional[float] = None

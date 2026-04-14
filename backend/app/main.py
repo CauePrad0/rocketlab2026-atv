@@ -81,7 +81,6 @@ def detalhes_do_produto(id_produto: str, db: Session = Depends(get_db)):
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-
     vendas = db.query(func.count(ItemPedido.id_item)).filter(ItemPedido.id_produto == id_produto).scalar() or 0
 
     avaliacoes_db = db.query(AvaliacaoPedido).\
@@ -93,10 +92,24 @@ def detalhes_do_produto(id_produto: str, db: Session = Depends(get_db)):
         for a in avaliacoes_db
     ]
 
+
+    media = 0
+    if lista_avaliacoes:
+        media = sum(a["avaliacao"] for a in lista_avaliacoes) / len(lista_avaliacoes)
+        
+
+    categoria_limpa = produto.categoria_produto.strip() if produto.categoria_produto else ""
+    imagem = IMAGENS_CATEGORIAS.get(categoria_limpa)
+
+
+    produto_dict = {column.name: getattr(produto, column.name) for column in produto.__table__.columns}
+
     return {
-        **produto.__dict__,
-        "quantidade_vendas": vendas,
-        "avaliacoes_consumidores": lista_avaliacoes
+        **produto_dict,
+        "vendas_totais": vendas,             # Front espera "vendas_totais" ou ignorar
+        "avaliacoes": lista_avaliacoes,      # Mudei de "avaliacoes_consumidores" para "avaliacoes"
+        "media_avaliacoes": media,           # Novo
+        "imagem_url": imagem                 # Novo
     }
 
 #Analise de performance entregas
@@ -168,7 +181,13 @@ def adicionar_produto(produto: schemas.ProdutoCreate, db: Session = Depends(get_
     db.add(novo_produto)
     db.commit()
     db.refresh(novo_produto)
-    return novo_produto
+    return {
+        **{column.name: getattr(novo_produto, column.name) for column in novo_produto.__table__.columns},
+        "imagem_url": IMAGENS_CATEGORIAS.get(
+            novo_produto.categoria_produto,
+            "https://via.placeholder.com/150?text=Sem+Foto"
+        )
+    }
 
 #update produto
 @app.put("/produtos/{id_produto}", response_model=schemas.ProdutoResponse)
@@ -182,7 +201,13 @@ def atualizar_produto(id_produto: str, prod_atualizado: schemas.ProdutoUpdate, d
         
     db.commit()
     db.refresh(db_produto)
-    return db_produto
+    return {
+        **{column.name: getattr(db_produto, column.name) for column in db_produto.__table__.columns},
+        "imagem_url": IMAGENS_CATEGORIAS.get(
+            db_produto.categoria_produto,
+            "https://via.placeholder.com/150?text=Sem+Foto"
+        )
+    }
 
 #Remover produto
 @app.delete("/produtos/{id_produto}", status_code=204)
@@ -194,5 +219,4 @@ def remover_produto(id_produto: str, db: Session = Depends(get_db)):
     db.delete(db_produto)
     db.commit()
     return None
-
 

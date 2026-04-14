@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from sqlalchemy import desc
+import csv
+from pathlib import Path
 
 from app.database import get_db
 from app.models.produto import Produto
@@ -16,11 +18,26 @@ app = FastAPI(title="API E-Commerce")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite que qualquer frontend acesse (ideal para MVP local)
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"],  # Permite GET, POST, PUT, DELETE
+    allow_methods=["*"],  
     allow_headers=["*"],
 )
+IMAGENS_CATEGORIAS = {}
+
+def carregar_imagens_por_categoria():
+    caminho_csv = Path(__file__).parent.parent / "data" / "dim_categoria_imagens.csv"
+    if caminho_csv.exists():
+        with open(caminho_csv, mode='r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                IMAGENS_CATEGORIAS[row['Categoria']] = row['Link']
+        print("Categorias com imagens carregadas")
+    else:
+        print("CSV não encontrado.")
+
+# Chama ao iniciar
+carregar_imagens_por_categoria()
 
 #navegar pelo catalogo
 @app.get("/produtos", response_model=List[schemas.ProdutoResponse])
@@ -30,13 +47,31 @@ def listar_ou_buscar_produtos(
     limit: int = 50, 
     db: Session = Depends(get_db)
 ):
+
     query = db.query(Produto)
     if busca:
         query = query.filter(
             Produto.nome_produto.ilike(f"%{busca}%") | 
             Produto.categoria_produto.ilike(f"%{busca}%")
         )
-    return query.offset(skip).limit(limit).all()
+    
+    # 2. Executa a busca no banco
+    produtos_banco = query.offset(skip).limit(limit).all()
+    
+    # 3. Injeta a imagem da categoria em cada produto
+    resultado = []
+    for p in produtos_banco:
+        # Transforma o objeto do SQLAlchemy em um dicionário
+        p_dict = {column.name: getattr(p, column.name) for column in p.__table__.columns}
+        
+        # Anexa a imagem buscando no dicionário global de categorias
+        p_dict["imagem_url"] = IMAGENS_CATEGORIAS.get(
+            p.categoria_produto, 
+            "https://via.placeholder.com/150?text=Sem+Foto"
+        )
+        resultado.append(p_dict)
+        
+    return resultado
 
 #detalhes do produto
 @app.get("/produtos/{id_produto}/detalhes", response_model=schemas.ProdutoDetalhesResponse)
@@ -73,7 +108,7 @@ def performance_entregas(db: Session = Depends(get_db)):
     ).filter(Pedido.entrega_no_prazo.isnot(None))\
      .group_by(Pedido.entrega_no_prazo).all()
     
-    # Dicionário inicializando as categorias exatas
+
     stats = {
         "No Prazo": 0, 
         "Atrasado": 0, 
@@ -94,16 +129,15 @@ def performance_entregas(db: Session = Depends(get_db)):
         {"status_entrega": label, "quantidade": qtd} 
         for label, qtd in stats.items()
     ]
+
 #Resumo geral da operaçao
 @app.get("/dashboard/resumo")
 def resumo_dashboard(db: Session = Depends(get_db)):
-    # Calcula o total de produtos cadastrados
+
     total_produtos = db.query(func.count(Produto.id_produto)).scalar()
-    
-    # Calcula a soma de todo o dinheiro que já entrou (Receita)
+
     receita_total = db.query(func.sum(ItemPedido.preco_BRL)).scalar()
-    
-    # Calcula a média de notas de toda a loja
+
     media_lojas = db.query(func.avg(AvaliacaoPedido.avaliacao)).scalar()
 
     return {

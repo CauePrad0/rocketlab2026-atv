@@ -8,6 +8,7 @@ class ProdutoBase(BaseModel):
     comprimento_centimetros: Optional[float] = None
     altura_centimetros: Optional[float] = None
     largura_centimetros: Optional[float] = None
+    imagem_url: Optional[str] = None
 
 class ProdutoCreate(ProdutoBase):
     id_produto: str
@@ -24,6 +25,7 @@ class ProdutoResponse(ProdutoBase):
     id_produto: str
     class Config:
         from_attributes = True
+
 
 
 class AvaliacaoDetalhe(BaseModel):

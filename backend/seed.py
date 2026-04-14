@@ -1,6 +1,7 @@
 import csv
 import os
 from datetime import datetime
+from sqlalchemy import select
 from app.database import SessionLocal
 from app.models.consumidor import Consumidor
 from app.models.produto import Produto
@@ -28,6 +29,9 @@ def safe_d(val):
         return datetime.strptime(val.strip(), "%Y-%m-%d").date() if val and val.strip() else None
     except ValueError:
         return None
+
+def has_seed_data(session):
+    return session.execute(select(Produto.id_produto).limit(1)).scalar_one_or_none() is not None
 
 def populate_consumidores(session):
     path = os.path.join(BASE_DIR, "dim_consumidores.csv")
@@ -144,6 +148,10 @@ def populate_avaliacoes(session):
 def execute_seed():
     db_session = SessionLocal()
     try:
+        if has_seed_data(db_session):
+            print("Banco ja possui dados. Seed ignorado.")
+            return
+
         print("Iniciando populacao db")
         populate_consumidores(db_session)
         populate_produtos(db_session)

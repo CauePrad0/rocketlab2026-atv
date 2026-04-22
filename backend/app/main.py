@@ -6,6 +6,7 @@ from sqlalchemy import desc
 import csv
 from pathlib import Path
 
+from app.agents import AnalystQueryRequest, AnalystQueryResponse, build_database_manager, run_analyst_query
 from app.database import get_db
 from app.models.produto import Produto
 from app.models.item_pedido import ItemPedido
@@ -24,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 IMAGENS_CATEGORIAS = {}
+DATABASE_MANAGER = None
 
 def carregar_imagens_por_categoria():
     caminho_csv = Path(__file__).parent.parent / "data" / "dim_categoria_imagens.csv"
@@ -38,6 +40,12 @@ def carregar_imagens_por_categoria():
 
 # Chama ao iniciar
 carregar_imagens_por_categoria()
+
+
+@app.on_event("startup")
+async def startup_event():
+    global DATABASE_MANAGER
+    DATABASE_MANAGER = build_database_manager()
 
 #navegar pelo catalogo
 @app.get("/produtos", response_model=List[schemas.ProdutoResponse])
@@ -218,5 +226,19 @@ def remover_produto(id_produto: str, db: Session = Depends(get_db)):
     
     db.delete(db_produto)
     db.commit()
-    return None
 
+
+@app.post("/analyst/query", response_model=AnalystQueryResponse)
+async def analyst_query(payload: AnalystQueryRequest):
+    if DATABASE_MANAGER is None:
+        raise HTTPException(status_code=503, detail="Gerenciador do banco do agente ainda nao foi inicializado.")
+
+    try:
+        return await run_analyst_query(payload.question, DATABASE_MANAGER)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Falha ao executar o agente analista: {exc}",
+        ) from exc

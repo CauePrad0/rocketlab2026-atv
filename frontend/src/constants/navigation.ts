@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Search } from 'lucide-react';
+import { Bot, LayoutDashboard, Search } from 'lucide-react';
 
 export interface NavigationItem {
   label: string;
@@ -17,5 +17,10 @@ export const navigationItems: NavigationItem[] = [
     label: 'Catalogo',
     path: '/catalogo',
     icon: Search,
+  },
+  {
+    label: 'Analista AI',
+    path: '/analista',
+    icon: Bot,
   },
 ];

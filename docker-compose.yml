@@ -5,6 +5,7 @@ services:
     container_name: rocketlab-backend
     environment:
       DATABASE_URL: sqlite:////data/database.db
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:

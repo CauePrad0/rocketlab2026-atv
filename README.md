@@ -1,4 +1,5 @@
-# Rocketlab 2026 ATV
+# Agent-Text-to-SQL
+
 
 Aplicação full stack para operação de E-commerce com um agente de Análise de Dados Text-to-SQL integrado.
 
